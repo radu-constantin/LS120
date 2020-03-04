@@ -1,57 +1,88 @@
 class Move
-  VALUES = ['rock', 'paper', 'scissors', 'lizard', 'spock']
-
-  def initialize(value)
-    @value = value
-  end
-
-  def scissors?
-    @value == 'scissors'
-  end
-
-  def rock?
-    @value == 'rock'
-  end
-
-  def paper?
-    @value == 'paper'
-  end
-
-  def lizard?
-    @value == 'lizard'
-  end
-
-  def spock?
-    @value == 'spock'
-  end
-
-  def >(other_move)
-    (rock? && other_move.scissors?) ||
-      (paper? && other_move.rock?) ||
-      (scissors? && other_move.paper?) ||
-      (lizard? && other_move.paper?) ||
-      (lizard? && other_move.spock?) ||
-      (spock? && other_move.scissors?) ||
-      (spock? && other_move.rock?)
-    end
-
-  def <(other_move)
-   (rock? && other_move.paper?) ||
-    (paper? && other_move.scissors?) ||
-    (scissors? && other_move.rock?) ||
-    (lizard? && other_move.rock?) ||
-    (lizard? && other_move.scissors?) ||
-    (spock? && other_move.lizard?) ||
-    (spock? && other_move.paper?)
-  end
+  attr_accessor :name
 
   def to_s
-    @value
+    @name
   end
 end
 
+class Rock < Move
+  def initialize
+    @name = 'rock'
+  end
+
+  def >(other_move)
+     other_move.class == Scissors || other_move.class == Lizard
+  end
+
+  def <(other_move)
+    other_move.class == Paper || other_move.class == Spock
+  end
+end
+
+class Paper < Move
+  def initialize
+    @name = 'paper'
+  end
+
+  def >(other_move)
+     other_move.class == Rock || other_move.class == Spock
+  end
+
+  def <(other_move)
+    other_move.class == Scissors || other_move.class == Lizard
+  end
+end
+
+class Scissors < Move
+  def initialize
+    @name = 'scissors'
+  end
+  def >(other_move)
+     other_move.class == Paper || other_move.class == Lizard
+  end
+
+  def <(other_move)
+    other_move.class == Rock || other_move.class == Spock
+  end
+end
+
+class Lizard < Move
+  def initialize
+    @name = 'lizard'
+  end
+  def >(other_move)
+     other_move.class == Spock || other_move.class == Paper
+  end
+
+  def <(other_move)
+    other_move.class == Rock || other_move.class == Scissors
+  end
+end
+
+class Spock < Move
+  def initialize
+    @name = 'spock'
+  end
+  def >(other_move)
+     other_move.class == Rock || other_move.class == Scissors
+  end
+
+  def <(other_move)
+    other_move.class == Lizard || other_move.class == Paper
+  end
+end
+
+
 class Player
   attr_accessor :move, :name, :score
+  POSSIBLE_MOVES = {
+    'rock' => Rock,
+    'paper' => Paper,
+    'scissors' => Scissors,
+    'lizard' => Lizard,
+    'spock' => Spock
+  }
 
   def initialize
     set_name
@@ -80,10 +111,10 @@ class Human < Player
     loop do
       puts "Please choose rock, paper, scissors, lizard or spock:"
       choice = gets.chomp
-      break if Move::VALUES.include?(choice)
+      break if POSSIBLE_MOVES.keys.include?(choice)
       puts "Sorry, invalid choice."
     end
-    self.move = Move.new(choice)
+    self.move = POSSIBLE_MOVES[choice].new
   end
 end
 
@@ -93,16 +124,29 @@ class Computer < Player
   end
 
   def choose
-    self.move = Move.new(Move::VALUES.sample)
+    self.move = POSSIBLE_MOVES[POSSIBLE_MOVES.keys.sample].new
+  end
+end
+
+class History
+  attr_accessor :move_history
+  def initialize
+    @move_history = Hash.new
   end
 end
 
 class RPSGame
-  attr_accessor :human, :computer
+  attr_accessor :human, :computer, :history, :round
 
   def initialize
     @human = Human.new
     @computer = Computer.new
+    @history = History.new
+    @round = 1
+  end
+
+  def next_round
+    @round += 1
   end
 
   def display_welcome_message
@@ -187,10 +231,31 @@ class RPSGame
 
   def score_winner?
     if human.score >= 10
-      return true
+      true
     elsif computer.score >= 10
-      return true
+      true
     end
+  end
+
+  def add_to_history
+    history.move_history[round] = "\nRound #{round}: \n#{human.name} chose #{human.move}.\n#{computer.name} chose #{computer.move}.\n"
+  end
+
+  def print_history
+    history.move_history.each_value do |moves|
+      print moves
+    end
+  end
+
+  def see_history?
+    answer = nil
+    loop do
+      puts 'Do you want to see the moves that were played this match?(y/n)'
+      answer = gets.chomp
+      break if ['y', 'n'].include? answer.downcase
+      puts 'Sorry, must be y or n.'
+    end
+    print_history if answer.downcase == 'y'
   end
 
   def play
@@ -198,17 +263,21 @@ class RPSGame
     loop do
       human.choose
       computer.choose
+      add_to_history
       display_moves
       display_winner
       display_score
+      next_round
       if score_winner? && rematch
         next
       elsif score_winner?
+        see_history?
         break
       end
       break unless play_again?
+      system 'clear'
     end
-    display_goodbye_message  #modify so that it asks you to play again and reset score.
+    display_goodbye_message
   end
 end
 
